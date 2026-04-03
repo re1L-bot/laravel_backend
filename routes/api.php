@@ -63,3 +63,12 @@ Route::options('/{any}', function() {
         ->header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
         ->header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
 })->where('any', '.*');
+Route::get('/test', function() {
+    return response()->json(['message' => 'Backend is working!']);
+});
+
+Route::get('/migrate', function() {
+    \Artisan::call('migrate', ['--force' => true]);
+    return response()->json(['message' => 'Migrations completed.']);
+});
+
