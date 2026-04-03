@@ -34,10 +34,10 @@ class PlaceController extends Controller
             $validator = Validator::make($request->all(), [
                 'name'       => 'required|string|max:255',
                 'location'   => 'required|string|max:255',
-                'category'   => 'required|integer|min:1',
+                'category'   => 'required|integer|min:1|max:6',
                 'map_url'    => 'nullable|url',
                 'open_hours' => 'nullable|string',
-                'photo'      => 'nullable|url|max:500', // Accepts URL string, not file!
+                'photo'      => 'nullable|url|max:500',
             ]);
 
             if ($validator->fails()) {
@@ -47,14 +47,13 @@ class PlaceController extends Controller
                 ], 422);
             }
 
-            // Just store the URL directly - NO FILE UPLOAD!
             $place = Place::create([
                 'name'       => $request->name,
                 'location'   => $request->location,
                 'category'   => $request->category,
                 'map_url'    => $request->map_url,
                 'open_hours' => $request->open_hours,
-                'photo'      => $request->photo, // Store the URL directly
+                'photo'      => $request->photo,
             ]);
 
             Log::info('Place created successfully: ' . $place->name);
@@ -113,10 +112,10 @@ class PlaceController extends Controller
             $validator = Validator::make($request->all(), [
                 'name'       => 'sometimes|required|string|max:255',
                 'location'   => 'sometimes|required|string|max:255',
-                'category'   => 'sometimes|required|integer|min:1',
+                'category'   => 'sometimes|required|integer|min:1|max:6',
                 'map_url'    => 'sometimes|required|url',
                 'open_hours' => 'sometimes|required|string',
-                'photo'      => 'sometimes|required|url|max:500', // Accept URL string, not file!
+                'photo'      => 'sometimes|required|url|max:500',
             ]);
 
             if ($validator->fails()) {
@@ -126,7 +125,6 @@ class PlaceController extends Controller
                 ], 422);
             }
 
-            // Just update with the URL - NO FILE HANDLING!
             $place->fill($request->only(['name', 'location', 'category', 'map_url', 'open_hours', 'photo']));
             $place->save();
 
@@ -151,10 +149,8 @@ class PlaceController extends Controller
     public function destroy($id)
     {
         try {
-            // Log the delete attempt
             Log::info('Attempting to delete place with ID: ' . $id);
             
-            // Find the place
             $place = Place::find($id);
             
             if (!$place) {
@@ -165,17 +161,14 @@ class PlaceController extends Controller
                 ], 404);
             }
             
-            // Log the place details before deletion
             Log::info('Deleting place:', [
                 'id' => $place->id,
                 'name' => $place->name,
                 'photo' => $place->photo
             ]);
             
-            // Delete the place
             $place->delete();
             
-            // Log successful deletion
             Log::info('Place deleted successfully. ID: ' . $id);
             
             return response()->json([
@@ -188,7 +181,6 @@ class PlaceController extends Controller
             ]);
             
         } catch (\Exception $e) {
-            // Log the error
             Log::error('Error deleting place: ' . $e->getMessage());
             Log::error($e->getTraceAsString());
             
@@ -200,4 +192,3 @@ class PlaceController extends Controller
         }
     }
 }
-
