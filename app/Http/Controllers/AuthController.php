@@ -7,9 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Http; // Add this for reCAPTCHA
 
 class AuthController extends Controller
 {
@@ -21,50 +19,7 @@ class AuthController extends Controller
         try {
             Log::info('Registration attempt', ['email' => $request->email]);
             
-            // 1. Validate reCAPTCHA
-            $recaptchaToken = $request->input('recaptcha_token');
-            
-            if (!$recaptchaToken) {
-                Log::warning('Registration failed: No reCAPTCHA token', ['email' => $request->email]);
-                return response()->json([
-                    'message' => 'Validation failed',
-                    'errors' => ['recaptcha' => ['reCAPTCHA verification is required.']]
-                ], 422);
-            }
-            
-            // Verify reCAPTCHA with Google
-            $recaptchaSecret = env('RECAPTCHA_SECRET_KEY');
-            
-            if (!$recaptchaSecret) {
-                Log::error('RECAPTCHA_SECRET_KEY not configured');
-                return response()->json([
-                    'message' => 'Server configuration error',
-                    'errors' => ['recaptcha' => ['reCAPTCHA configuration error.']]
-                ], 500);
-            }
-            
-            $response = Http::asForm()->post('https://www.google.com/recaptcha/api/siteverify', [
-                'secret' => $recaptchaSecret,
-                'response' => $recaptchaToken,
-                'remoteip' => $request->ip()
-            ]);
-            
-            $recaptchaResult = $response->json();
-            
-            Log::info('reCAPTCHA result', [
-                'success' => $recaptchaResult['success'] ?? false,
-                'score' => $recaptchaResult['score'] ?? null,
-                'email' => $request->email
-            ]);
-            
-            if (!$recaptchaResult['success'] || $recaptchaResult['score'] < 0.5) {
-                return response()->json([
-                    'message' => 'Validation failed',
-                    'errors' => ['recaptcha' => ['reCAPTCHA verification failed. Please try again.']]
-                ], 422);
-            }
-            
-            // 2. Validate user input
+            // Validate user input
             $validator = Validator::make($request->all(), [
                 'name' => 'required|string|max:255',
                 'username' => 'required|string|max:255|unique:users',
@@ -83,7 +38,7 @@ class AuthController extends Controller
                 ], 422);
             }
             
-            // 3. Create user
+            // Create user
             $user = User::create([
                 'name' => $request->name,
                 'username' => $request->username,
@@ -97,7 +52,7 @@ class AuthController extends Controller
             
             Log::info('User registered successfully', ['user_id' => $user->id, 'email' => $user->email]);
             
-            // Optionally create a token for auto-login after registration
+            // Create token for auto-login after registration
             $token = $user->createToken('auth_token')->plainTextToken;
             
             return response()->json([
@@ -224,6 +179,24 @@ class AuthController extends Controller
             Log::error('Change password error: ' . $e->getMessage());
             return response()->json([
                 'message' => 'Server error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    public function cleanupUnverified(Request $request): JsonResponse
+    {
+        try {
+            $deleted = User::whereNull('email_verified_at')
+                ->where('created_at', '<', now()->subDay())
+                ->delete();
+            
+            return response()->json([
+                'message' => "Cleaned up {$deleted} unverified users"
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Cleanup error: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Cleanup failed: ' . $e->getMessage()
             ], 500);
         }
     }
