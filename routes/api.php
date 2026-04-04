@@ -81,3 +81,9 @@ Route::post('/password/reset-with-security', [AuthController::class, 'resetPassw
 Route::post('/password/security-question', [AuthController::class, 'getSecurityQuestion']);
 Route::post('/password/verify-answer', [AuthController::class, 'verifySecurityAnswer']);
 Route::post('/password/reset-with-security', [AuthController::class, 'resetPasswordWithSecurity']);
+Route::prefix('password')->group(function () {
+    // These are the new endpoints for security question based reset
+    Route::post('/security-question', [AuthController::class, 'getSecurityQuestion']);
+    Route::post('/verify-security-answer', [AuthController::class, 'verifySecurityAnswer']);
+    Route::post('/reset-password-security', [AuthController::class, 'resetPasswordWithSecurity']);
+});
