@@ -13,23 +13,19 @@ class User extends Authenticatable
 
     protected $fillable = [
         'name',
-        'username',
         'email',
-        'phone_number',
-        'address',
-        'birthday',
-        'age',
         'password',
-        'email_verified_at',
+        'security_question',
+        'security_answer',
     ];
 
     protected $hidden = [
         'password',
+        'security_answer',
         'remember_token',
     ];
 
     protected $casts = [
         'email_verified_at' => 'datetime',
-        'birthday' => 'date',
     ];
 }
