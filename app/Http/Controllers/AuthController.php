@@ -19,10 +19,9 @@ class AuthController extends Controller
         try {
             Log::info('Registration attempt', ['email' => $request->email]);
             
-            // Validate user input
+            // Validate user input (username removed)
             $validator = Validator::make($request->all(), [
                 'name' => 'required|string|max:255',
-                'username' => 'required|string|max:255|unique:users',
                 'email' => 'required|string|email|max:255|unique:users',
                 'phone' => 'required|string|max:20',
                 'address' => 'required|string|max:500',
@@ -38,10 +37,9 @@ class AuthController extends Controller
                 ], 422);
             }
             
-            // Create user
+            // Create user (username removed)
             $user = User::create([
                 'name' => $request->name,
-                'username' => $request->username,
                 'email' => $request->email,
                 'phone' => $request->phone,
                 'address' => $request->address,
