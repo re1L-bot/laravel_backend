@@ -14,9 +14,8 @@ use Illuminate\Support\Facades\Http;
 
 // Authentication Routes
 Route::post('/login', [AuthController::class, 'login']);
-Route::post('/cleanup-unverified', [AuthController::class, 'cleanupUnverified']);
-// Registration Routes (Using RegisterController with reCAPTCHA)
 Route::post('/register', [AuthController::class, 'register']);
+Route::post('/cleanup-unverified', [AuthController::class, 'cleanupUnverified']);
 
 // Test route to check if API is working
 Route::get('/test', function() {
@@ -24,17 +23,26 @@ Route::get('/test', function() {
         'message' => '✅ API is working!',
         'timestamp' => now(),
         'status' => 'success',
-        'captcha_endpoint' => '/verify-captcha is available'
     ]);
+});
+
+// ============================================
+// PASSWORD RESET ROUTES (Using Security Questions)
+// ============================================
+Route::prefix('password')->group(function () {
+    Route::post('/security-question', [AuthController::class, 'getSecurityQuestion']);
+    Route::post('/verify-security-answer', [AuthController::class, 'verifySecurityAnswer']);
+    Route::post('/reset-password-security', [AuthController::class, 'resetPasswordWithSecurity']);
 });
 
 // ============================================
 // PROTECTED ROUTES (Require authentication)
 // ============================================
 Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/user',            [AuthController::class, 'user']);
-    Route::post('/logout',         [AuthController::class, 'logout']);
-    Route::post('/change-password',[AuthController::class, 'changePassword']);
+    Route::get('/user', [AuthController::class, 'user']);
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::post('/change-password', [AuthController::class, 'changePassword']);
+    Route::post('/update-security-question', [AuthController::class, 'updateSecurityQuestion']);
 });
 
 // ============================================
@@ -46,15 +54,6 @@ Route::prefix('places')->group(function () {
     Route::get('/{id}', [PlaceController::class, 'show']);
     Route::put('/{id}', [PlaceController::class, 'update']);
     Route::delete('/{id}', [PlaceController::class, 'destroy']);
-});
-
-// ============================================
-// PASSWORD RESET ROUTES
-// ============================================
-Route::prefix('password')->group(function () {
-    Route::post('/forgot', [PasswordResetController::class, 'sendCode']);
-    Route::post('/verify', [PasswordResetController::class, 'verifyCode']);
-    Route::post('/reset',  [PasswordResetController::class, 'resetPassword']);
 });
 
 // ============================================
@@ -73,17 +72,4 @@ Route::options('/{any}', function() {
 Route::get('/migrate', function() {
     \Artisan::call('migrate', ['--force' => true]);
     return response()->json(['message' => 'Migrations completed.']);
-});
-Route::post('/password/security-question', [AuthController::class, 'getSecurityQuestion']);
-Route::post('/password/verify-answer', [AuthController::class, 'verifySecurityQuestion']);
-Route::post('/password/reset-with-security', [AuthController::class, 'resetPasswordWithSecurity']);
-// Password reset via security question
-Route::post('/password/security-question', [AuthController::class, 'getSecurityQuestion']);
-Route::post('/password/verify-answer', [AuthController::class, 'verifySecurityAnswer']);
-Route::post('/password/reset-with-security', [AuthController::class, 'resetPasswordWithSecurity']);
-Route::prefix('password')->group(function () {
-    // These are the new endpoints for security question based reset
-    Route::post('/security-question', [AuthController::class, 'getSecurityQuestion']);
-    Route::post('/verify-security-answer', [AuthController::class, 'verifySecurityAnswer']);
-    Route::post('/reset-password-security', [AuthController::class, 'resetPasswordWithSecurity']);
 });
