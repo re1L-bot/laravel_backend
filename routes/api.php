@@ -3,23 +3,28 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\API\PlaceController;
 use App\Http\Controllers\Api\PasswordResetController;
+use App\Http\Controllers\Api\RegisterController;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\EmailVerificationController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+
 // ============================================
 // PUBLIC ROUTES (No authentication required)
 // ============================================
 
 // Authentication Routes
 Route::post('/login', [AuthController::class, 'login']);
-Route::post('/register', [AuthController::class, 'register']);
 Route::post('/cleanup-unverified', [AuthController::class, 'cleanupUnverified']);
+// Registration Routes (Using RegisterController with reCAPTCHA)
+Route::post('/register', [AuthController::class, 'register']);
 
 // Test route to check if API is working
 Route::get('/test', function() {
     return response()->json([
         'message' => '✅ API is working!',
         'timestamp' => now(),
-        'status' => 'success'
+        'status' => 'success',
+        'captcha_endpoint' => '/verify-captcha is available'
     ]);
 });
 
@@ -27,9 +32,9 @@ Route::get('/test', function() {
 // PROTECTED ROUTES (Require authentication)
 // ============================================
 Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/user', [AuthController::class, 'user']);
-    Route::post('/logout', [AuthController::class, 'logout']);
-    Route::post('/change-password', [AuthController::class, 'changePassword']);
+    Route::get('/user',            [AuthController::class, 'user']);
+    Route::post('/logout',         [AuthController::class, 'logout']);
+    Route::post('/change-password',[AuthController::class, 'changePassword']);
 });
 
 // ============================================
@@ -49,7 +54,7 @@ Route::prefix('places')->group(function () {
 Route::prefix('password')->group(function () {
     Route::post('/forgot', [PasswordResetController::class, 'sendCode']);
     Route::post('/verify', [PasswordResetController::class, 'verifyCode']);
-    Route::post('/reset', [PasswordResetController::class, 'resetPassword']);
+    Route::post('/reset',  [PasswordResetController::class, 'resetPassword']);
 });
 
 // ============================================
@@ -69,11 +74,6 @@ Route::get('/migrate', function() {
     \Artisan::call('migrate', ['--force' => true]);
     return response()->json(['message' => 'Migrations completed.']);
 });
-// ============================================
-// EMAIL VERIFICATION ROUTES
-// ============================================
-Route::prefix('email')->group(function () {
-    Route::post('/send',   [EmailVerificationController::class, 'send']);
-    Route::post('/verify', [EmailVerificationController::class, 'verify']);
-    Route::post('/resend', [EmailVerificationController::class, 'resend']);
-});
+Route::post('/password/security-question', [AuthController::class, 'getSecurityQuestion']);
+Route::post('/password/verify-answer', [AuthController::class, 'verifySecurityQuestion']);
+Route::post('/password/reset-with-security', [AuthController::class, 'resetPasswordWithSecurity']);
