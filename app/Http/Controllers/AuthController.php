@@ -9,9 +9,111 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Http; // Add this for reCAPTCHA
 
 class AuthController extends Controller
 {
+    /**
+     * Register a new user
+     */
+    public function register(Request $request): JsonResponse
+    {
+        try {
+            Log::info('Registration attempt', ['email' => $request->email]);
+            
+            // 1. Validate reCAPTCHA
+            $recaptchaToken = $request->input('recaptcha_token');
+            
+            if (!$recaptchaToken) {
+                Log::warning('Registration failed: No reCAPTCHA token', ['email' => $request->email]);
+                return response()->json([
+                    'message' => 'Validation failed',
+                    'errors' => ['recaptcha' => ['reCAPTCHA verification is required.']]
+                ], 422);
+            }
+            
+            // Verify reCAPTCHA with Google
+            $recaptchaSecret = env('RECAPTCHA_SECRET_KEY');
+            
+            if (!$recaptchaSecret) {
+                Log::error('RECAPTCHA_SECRET_KEY not configured');
+                return response()->json([
+                    'message' => 'Server configuration error',
+                    'errors' => ['recaptcha' => ['reCAPTCHA configuration error.']]
+                ], 500);
+            }
+            
+            $response = Http::asForm()->post('https://www.google.com/recaptcha/api/siteverify', [
+                'secret' => $recaptchaSecret,
+                'response' => $recaptchaToken,
+                'remoteip' => $request->ip()
+            ]);
+            
+            $recaptchaResult = $response->json();
+            
+            Log::info('reCAPTCHA result', [
+                'success' => $recaptchaResult['success'] ?? false,
+                'score' => $recaptchaResult['score'] ?? null,
+                'email' => $request->email
+            ]);
+            
+            if (!$recaptchaResult['success'] || $recaptchaResult['score'] < 0.5) {
+                return response()->json([
+                    'message' => 'Validation failed',
+                    'errors' => ['recaptcha' => ['reCAPTCHA verification failed. Please try again.']]
+                ], 422);
+            }
+            
+            // 2. Validate user input
+            $validator = Validator::make($request->all(), [
+                'name' => 'required|string|max:255',
+                'username' => 'required|string|max:255|unique:users',
+                'email' => 'required|string|email|max:255|unique:users',
+                'phone' => 'required|string|max:20',
+                'address' => 'required|string|max:500',
+                'birthdate' => 'required|date',
+                'age' => 'required|integer|min:1|max:120',
+                'password' => 'required|string|min:8|confirmed',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+            
+            // 3. Create user
+            $user = User::create([
+                'name' => $request->name,
+                'username' => $request->username,
+                'email' => $request->email,
+                'phone' => $request->phone,
+                'address' => $request->address,
+                'birthdate' => $request->birthdate,
+                'age' => $request->age,
+                'password' => Hash::make($request->password),
+            ]);
+            
+            Log::info('User registered successfully', ['user_id' => $user->id, 'email' => $user->email]);
+            
+            // Optionally create a token for auto-login after registration
+            $token = $user->createToken('auth_token')->plainTextToken;
+            
+            return response()->json([
+                'message' => 'Registration successful',
+                'user' => $user,
+                'token' => $token
+            ], 201);
+            
+        } catch (\Exception $e) {
+            Log::error('Registration error: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Server error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function login(Request $request): JsonResponse
     {
         try {
@@ -71,7 +173,7 @@ class AuthController extends Controller
         try {
             $validator = Validator::make($request->all(), [
                 'current_password'          => 'required',
-                'new_password'              => 'required|min:8|confirmed', // 'confirmed' checks new_password_confirmation field
+                'new_password'              => 'required|min:8|confirmed',
                 'new_password_confirmation' => 'required',
             ]);
 
