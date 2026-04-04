@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\EmailVerificationMail;
+use App\Models\EmailVerificationCode;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 
@@ -19,44 +22,61 @@ class AuthController extends Controller
         try {
             Log::info('Registration attempt', ['email' => $request->email]);
             
-            // Validate user input (username removed)
+            // Validate user input
             $validator = Validator::make($request->all(), [
-                'name' => 'required|string|max:255',
-                'email' => 'required|string|email|max:255|unique:users',
-                'phone' => 'required|string|max:20',
-                'address' => 'required|string|max:500',
-                'birthdate' => 'required|date',
-                'age' => 'required|integer|min:1|max:120',
+                'name'     => 'required|string|max:255',
+                'email'    => 'required|string|email|max:255|unique:users',
+                'phone'    => 'required|string|max:20',
+                'address'  => 'required|string|max:500',
+                'birthdate'=> 'required|date',
+                'age'      => 'required|integer|min:1|max:120',
                 'password' => 'required|string|min:8|confirmed',
             ]);
 
             if ($validator->fails()) {
                 return response()->json([
                     'message' => 'Validation failed',
-                    'errors' => $validator->errors()
+                    'errors'  => $validator->errors()
                 ], 422);
             }
             
-            // Create user (username removed)
+            // Create user
             $user = User::create([
-                'name' => $request->name,
-                'email' => $request->email,
-                'phone' => $request->phone,
-                'address' => $request->address,
+                'name'      => $request->name,
+                'email'     => $request->email,
+                'phone'     => $request->phone,
+                'address'   => $request->address,
                 'birthdate' => $request->birthdate,
-                'age' => $request->age,
-                'password' => Hash::make($request->password),
+                'age'       => $request->age,
+                'password'  => Hash::make($request->password),
             ]);
             
             Log::info('User registered successfully', ['user_id' => $user->id, 'email' => $user->email]);
             
             // Create token for auto-login after registration
             $token = $user->createToken('auth_token')->plainTextToken;
+
+            // ── Generate & send email verification OTP ──────────────
+            $code = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+
+            EmailVerificationCode::where('email', $user->email)->delete(); // clear old codes
+
+            EmailVerificationCode::create([
+                'email'      => $user->email,
+                'code'       => $code,
+                'expires_at' => now()->addMinutes(2),
+                'used'       => false,
+            ]);
+
+            Mail::to($user->email)->send(new EmailVerificationMail($code));
+
+            Log::info('Verification email sent', ['user_id' => $user->id]);
+            // ────────────────────────────────────────────────────────
             
             return response()->json([
                 'message' => 'Registration successful',
-                'user' => $user,
-                'token' => $token
+                'user'    => $user,
+                'token'   => $token
             ], 201);
             
         } catch (\Exception $e) {
@@ -73,14 +93,14 @@ class AuthController extends Controller
             Log::info('Login attempt', ['email' => $request->email]);
             
             $validator = Validator::make($request->all(), [
-                'email' => 'required|email',
+                'email'    => 'required|email',
                 'password' => 'required',
             ]);
 
             if ($validator->fails()) {
                 return response()->json([
                     'message' => 'Validation failed',
-                    'errors' => $validator->errors()
+                    'errors'  => $validator->errors()
                 ], 422);
             }
 
@@ -95,7 +115,7 @@ class AuthController extends Controller
             $token = $user->createToken('auth_token')->plainTextToken;
 
             return response()->json([
-                'user' => $user,
+                'user'  => $user,
                 'token' => $token,
             ]);
             
@@ -139,7 +159,6 @@ class AuthController extends Controller
 
             $user = $request->user();
 
-            // Check if current password is correct
             if (!Hash::check($request->current_password, $user->password)) {
                 return response()->json([
                     'message' => 'Current password is incorrect.',
@@ -149,7 +168,6 @@ class AuthController extends Controller
                 ], 422);
             }
 
-            // Check new password is not the same as current
             if (Hash::check($request->new_password, $user->password)) {
                 return response()->json([
                     'message' => 'New password must be different from the current password.',
@@ -159,12 +177,10 @@ class AuthController extends Controller
                 ], 422);
             }
 
-            // Update password
             $user->update([
                 'password' => Hash::make($request->new_password)
             ]);
 
-            // Revoke all tokens so the user is logged out everywhere
             $user->tokens()->delete();
 
             Log::info('Password changed', ['user_id' => $user->id]);

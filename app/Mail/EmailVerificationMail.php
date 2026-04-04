@@ -1,26 +1,20 @@
 <?php
 
-namespace App\Mail;
+namespace App\Models;
 
-use Illuminate\Bus\Queueable;
-use Illuminate\Mail\Mailable;
-use Illuminate\Queue\SerializesModels;
+use Illuminate\Database\Eloquent\Model;
 
-class EmailVerificationMail extends Mailable
+class EmailVerificationCode extends Model
 {
-    use Queueable, SerializesModels;
+    protected $fillable = ['email', 'code', 'expires_at', 'used'];
 
-    public $code;
+    protected $casts = [
+        'expires_at' => 'datetime',
+        'used'       => 'boolean',
+    ];
 
-    public function __construct($code)
+    public function isValid(): bool
     {
-        $this->code = $code;
-    }
-
-    public function build()
-    {
-        return $this->subject('Your Verification Code - Flavors of Bantayan')
-                    ->view('emails.verification')
-                    ->with(['code' => $this->code]);
+        return !$this->used && $this->expires_at->isFuture();
     }
 }

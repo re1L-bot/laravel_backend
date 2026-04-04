@@ -4,7 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\API\PlaceController;
 use App\Http\Controllers\Api\PasswordResetController;
 use Illuminate\Support\Facades\Route;
-
+use App\Http\Controllers\Api\EmailVerificationController;
 // ============================================
 // PUBLIC ROUTES (No authentication required)
 // ============================================
@@ -68,4 +68,12 @@ Route::options('/{any}', function() {
 Route::get('/migrate', function() {
     \Artisan::call('migrate', ['--force' => true]);
     return response()->json(['message' => 'Migrations completed.']);
+});
+// ============================================
+// EMAIL VERIFICATION ROUTES
+// ============================================
+Route::prefix('email')->group(function () {
+    Route::post('/send',   [EmailVerificationController::class, 'send']);
+    Route::post('/verify', [EmailVerificationController::class, 'verify']);
+    Route::post('/resend', [EmailVerificationController::class, 'resend']);
 });
