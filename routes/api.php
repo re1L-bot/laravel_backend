@@ -77,3 +77,7 @@ Route::get('/migrate', function() {
 Route::post('/password/security-question', [AuthController::class, 'getSecurityQuestion']);
 Route::post('/password/verify-answer', [AuthController::class, 'verifySecurityQuestion']);
 Route::post('/password/reset-with-security', [AuthController::class, 'resetPasswordWithSecurity']);
+// Password reset via security question
+Route::post('/password/security-question', [AuthController::class, 'getSecurityQuestion']);
+Route::post('/password/verify-answer', [AuthController::class, 'verifySecurityAnswer']);
+Route::post('/password/reset-with-security', [AuthController::class, 'resetPasswordWithSecurity']);
